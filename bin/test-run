@@ -19,13 +19,13 @@ function check_linkerd_binary(){
 function check_if_k8s_reachable(){
     printf "Checking if there is a Kubernetes cluster available..."
     exit_code=0
-    kubectl --context=$k8s_context --request-timeout=5s get ns > /dev/null 2>&1
+    $kubectl --context=$k8s_context --request-timeout=5s get ns > /dev/null 2>&1
     exit_on_err "error connecting to Kubernetes cluster"
     printf "[ok]\\n"
 }
 
 function remove_l5d_if_exists() {
-  resources=$(kubectl --context=$k8s_context get all,clusterrole,clusterrolebinding,mutatingwebhookconfigurations,validatingwebhookconfigurations,psp,crd -l linkerd.io/control-plane-ns --all-namespaces -oname)
+  resources=$($kubectl --context=$k8s_context get all,clusterrole,clusterrolebinding,mutatingwebhookconfigurations,validatingwebhookconfigurations,psp,crd -l linkerd.io/control-plane-ns --all-namespaces -oname)
   if [ ! -z "$resources" ]; then
     printf "Removing existing l5d installation..."
     cleanup
@@ -59,7 +59,7 @@ function install_stable() {
 
     local linkerd_path=$tmp/.linkerd2/bin/linkerd
     local stable_namespace="$1"
-    $linkerd_path install --linkerd-namespace="$stable_namespace" | kubectl --context=$k8s_context apply -f - > /dev/null 2>&1
+    $linkerd_path install --linkerd-namespace="$stable_namespace" | $kubectl --context=$k8s_context apply -f - > /dev/null 2>&1
     $linkerd_path check --linkerd-namespace="$stable_namespace" > /dev/null 2>&1
 }
 
@@ -77,10 +77,10 @@ function run_upgrade_test() {
 function run_helm_test() {
     (
         set -e
-        kubectl --context=$k8s_context create ns $tiller_namespace
-        kubectl --context=$k8s_context label ns $tiller_namespace linkerd.io/is-test-helm=true
-        kubectl --context=$k8s_context create clusterrolebinding ${tiller_namespace}:tiller-cluster-admin --clusterrole=cluster-admin --serviceaccount=${tiller_namespace}:default
-        kubectl --context=$k8s_context label clusterrolebinding ${tiller_namespace}:tiller-cluster-admin linkerd.io/is-test-helm=true
+        $kubectl --context=$k8s_context create ns $tiller_namespace
+        $kubectl --context=$k8s_context label ns $tiller_namespace linkerd.io/is-test-helm=true
+        $kubectl --context=$k8s_context create clusterrolebinding ${tiller_namespace}:tiller-cluster-admin --clusterrole=cluster-admin --serviceaccount=${tiller_namespace}:default
+        $kubectl --context=$k8s_context label clusterrolebinding ${tiller_namespace}:tiller-cluster-admin linkerd.io/is-test-helm=true
         $helm_path --kube-context=$k8s_context --tiller-namespace=$tiller_namespace init --wait
         $helm_path --kube-context=$k8s_context --tiller-namespace=$tiller_namespace dependency update $helm_chart
     )
@@ -98,12 +98,12 @@ function helm_cleanup() {
         # We wait for the namespace to be gone so the following call to `cleanup` doesn't fail when it attempts to delete
         # the same namespace that is already being deleted here (error thrown by the NamespaceLifecycle controller).
         # We don't have that problem with global resources, so no need to wait for them to be gone.
-        kubectl wait --for=delete ns/$linkerd_namespace-helm --timeout=40s
+        $kubectl wait --for=delete ns/$linkerd_namespace-helm --timeout=40s
         # `helm reset` deletes the tiller pod in $tiller_namespace
         $helm_path --kube-context=$k8s_context --tiller-namespace=$tiller_namespace reset
-        kubectl --context=$k8s_context delete clusterrolebinding ${tiller_namespace}:tiller-cluster-admin
+        $kubectl --context=$k8s_context delete clusterrolebinding ${tiller_namespace}:tiller-cluster-admin
         echo $tiller_namespace
-        kubectl --context=$k8s_context delete ns $tiller_namespace
+        $kubectl --context=$k8s_context delete ns $tiller_namespace
     )
 }
 
@@ -127,6 +127,7 @@ test_directory="$bindir/../test"
 linkerd_version=$($linkerd_path version --client --short)
 linkerd_namespace=${2:-l5d-integration}
 k8s_context=${3:-""}
+kubectl=$bindir/kubectl
 helm_path=$bindir/helm
 helm_chart=$rootdir/charts/linkerd2
 helm_release_name=$linkerd_namespace-test
