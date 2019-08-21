@@ -129,6 +129,8 @@ jobs:
         - echo $(git diff)
         - echo $(git diff-index --quiet HEAD --)
         - echo $(bin/root-tag)
+        - echo `pwd`
+        - git log|head
         - |
           for IMG in controller grafana proxy web ; do
             bin/kind load docker-image gcr.io/linkerd-io/$IMG:$TAG --name=$KIND_CLUSTER
